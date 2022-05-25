@@ -7,7 +7,6 @@ in
     name = "vim";
     vimrcConfig.packages.myVimPackage = with pkgs.vimPlugins; {
       start = [
-        YouCompleteMe        
         fugitive
         rust-vim
         tagbar
@@ -15,8 +14,11 @@ in
         vim-go
         vim-glsl
         haskell-vim
-        vim-hindent
         goyo-vim
+        vim-plug
+        ctrlp
+        fzf-vim
+        YouCompleteMe
       ];
     };
     vimrcConfig.customRC = ''
@@ -30,6 +32,9 @@ in
       set linebreak
       set tw=80
       let g:netrw_banner = 0
+
+      set wildmode=longest,list,full
+      set wildmenu
 
       " Haskell 
 
@@ -47,11 +52,13 @@ in
       noremap m n
       noremap l i
       noremap L I
+      noremap . m
 
       noremap n h
       noremap e j
       noremap i k
       noremap o l
+      noremap , w
       inoremap <BS> <Esc>
 
       " Syntastic
@@ -73,8 +80,12 @@ in
 
       " Tagbar
 
-      nnoremap <silent> <F12> :TagbarToggle<CR>
+      nnoremap <silent> <F12> :Rg 
+      nnoremap <silent> <F10> :!make test
       nnoremap <silent> <F5> :w<CR>
+      nnoremap <silent> <F6> :!make build<CR>
+      nnoremap <silent> <F7> :wq<CR>
+      nnoremap <silent> <F3> :Lex<CR>
       nnoremap <silent> <F3> :Lex<CR>
 
       " Explorer

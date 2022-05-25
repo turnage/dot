@@ -16,20 +16,26 @@ in {
       (import "${home-manager}/nixos")
     ];
 
-  nixpkgs.config.allowUnfree = true;
-  nix.nixPath = options.nix.nixPath.default ++ [
-    "nixpkgs-overlays=/etc/nixos/overlays"
-  ];
+  nixpkgs.config = {
+    allowBroken = false;
+    allowUnsupportedSystem = false;
+  };
+  nixpkgs.config.allowUnfree = true;  
+
+  virtualisation.docker.enable = true;  
+
+  nix = (import ./nix.nix);
 
   # Use the systemd-boot EFI boot loader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
   boot.loader.grub.useOSProber = true;
+  boot.kernelPackages = pkgs.linuxPackages_latest;
 
   networking.hostName = "samizdat"; # Define your hostname.
   networking.networkmanager.enable = true;
 
-  time.timeZone = "America/Denver";
+  time.timeZone = "America/Vancouver";
 
   networking.useDHCP = false;
   networking.interfaces.enp0s31f6.useDHCP = true;
@@ -49,10 +55,11 @@ in {
   services.xserver.enable = true;
   services.xserver.desktopManager.gnome3.enable = true;
   services.xserver.displayManager.gdm.enable = true;
-  services.xserver.displayManager.gdm.nvidiaWayland = true;
-  hardware.nvidia.modesetting.enable = true;
+  #services.xserver.displayManager.gdm.nvidiaWayland = true;
+  services.xserver.displayManager.gdm.wayland = true;
+  #hardware.nvidia.modesetting.enable = true;
   hardware.video.hidpi.enable = true;
-  services.xserver.videoDrivers = [ "nvidia" ];
+  #services.xserver.videoDrivers = [ "modesetting" "nvidia" ];
 
   services.xserver.layout = "us";
   services.xserver.xkbVariant = "colemak";
@@ -63,17 +70,34 @@ in {
   sound.enable = true;
   hardware.pulseaudio.enable = true;
 
-  services.xserver.libinput.enable = true;
+  services.xserver.libinput = {
+    enable = true;
+    additionalOptions = ''
+        Identifier   "Marble Mouse"
+        MatchProduct "Logitech USB Trackball"
+        Driver       "libinput"
+        Option       "ScrollMethod"    "button"
+        Option       "ScrollButton"    "8"
+        Option       "MiddleEmulation" "true"
+    '';
+  };
+
+  services.openvpn.servers = {
+    pritunl = (import ./pritunl.nix);
+  };
 
   users.users.turnage = {
     isNormalUser = true;
-    extraGroups = [ "wheel" ];
+    extraGroups = [ "wheel" "plugdev" "docker" ];
   };
 
   environment.systemPackages = with pkgs; [
+    xorg.libxshmfence  
     wget
     (import ./vim.nix)
-    git
+    gitFull
+    vimer
+    google-chrome
     networkmanager
     networkmanager_openvpn
     openvpn
@@ -88,6 +112,8 @@ in {
     unzip
     jq
     curl
+    kazam
+    vlc
 
     gnome3.file-roller
     gnome3.evince
@@ -100,7 +126,6 @@ in {
     geeqie
     gimp-with-plugins
     inotify-tools
-    xorg.xf86inputlibinput
 
     deluge
     vlc
@@ -117,25 +142,15 @@ in {
     valgrind
     python3
     stylish-haskell
-    old.haskellPackages.hindent
+    ormolu
     haskellPackages.cabal-install
     ghc
-  ];
+    fzf
+    ctags
+    postgis
 
-  environment = {
-    etc = {
-      "X11/xorg.conf.d/10-libinput.conf".text = ''
-        Section "InputClass"
-          Identifier   "Marble Mouse"
-          MatchProduct "Logitech USB Trackball"
-          Driver       "libinput"
-          Option       "ScrollMethod"    "button"
-          Option       "ScrollButton"    "8"
-          Option       "MiddleEmulation" "true"
-        EndSection
-      '';
-    };
-  };
+    obsidian
+  ];
 
   home-manager.users.turnage = {
     programs.git = {
@@ -160,12 +175,12 @@ in {
   };
 
   services.openssh.enable = true;
+  services.sshd.enable = true;
 
   # Open ports in the firewall.
-  networking.firewall.allowedTCPPorts = [ 8100 22 80 ];
-  # networking.firewall.allowedUDPPorts = [ ... ];
+  networking.firewall.allowedTCPPorts = [ 8100 22 80 3000 3001 ];
   # Or disable the firewall altogether.
-  # networking.firewall.enable = false;
+  networking.firewall.enable = true;
 
   # This value determines the NixOS release from which the default
   # settings for stateful data, like file locations and database versions
@@ -174,5 +189,36 @@ in {
   # Before changing this value read the documentation for this option
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
   system.stateVersion = "20.09"; # Did you read the comment?
+
+  # Merc
+  services.postgresql = {
+    package = pkgs.postgresql_13;
+    enable = true;
+    enableTCPIP = false;
+    authentication = ''
+      local all all trust
+      host all all 127.0.0.1/32 trust
+      host all all ::1/128 trust
+    '';
+    extraPlugins = [config.services.postgresql.package.pkgs.postgis];
+    # for configuration in NixOS 20.09 or later
+    settings = {
+      timezone = "UTC";
+      shared_buffers = 128;
+      fsync = false;
+      synchronous_commit = false;
+      full_page_writes = false;
+    };
+  };
+
+  services.journald = {
+    # this setting disables rate limiting
+    # https://www.freedesktop.org/software/systemd/man/journald.conf.html#RateLimitIntervalSec=
+    rateLimitBurst = 0;
+    forwardToSyslog = true;
+  };
+
+  services.syslogd.enable = true;
+  hardware.keyboard.zsa.enable = true;
 }
 

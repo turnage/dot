@@ -1,5 +1,36 @@
 export PATH=$PATH:~/.local/bin
+export PGUSER=mercury-web-backend
+export PGDATABASE=mercury-web-backend-development
+export NIXPKGS_ALLOW_UNFREE=1
+
+function e {
+  exa $@
+}
+
+function gs {
+  git status
+}
+
+function gau {
+  git add -u
+}
+
+function gm {
+  git commit $@
+}
+
+function vpn {
+  sudo systemctl start openvpn-pritunl
+}
 
 function q {
-  nix search -f '<nixpkgs' $@
+  nix search -f '<nixpkgs>' $1
+}
+
+function apt {
+  nix-env -iA -f '<nixpkgs>' $1
+}
+
+function ssr {
+  rg $1 -l | xargs sed -i "s/$1/$2/g"
 }
